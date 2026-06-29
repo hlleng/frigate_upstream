@@ -2,7 +2,13 @@ import unittest
 
 from frigate.config import FrigateConfig
 from frigate.config.camera.ffmpeg import FFMPEG_INPUT_ARGS_DEFAULT
-from frigate.ffmpeg_presets import parse_preset_input
+from frigate.ffmpeg_presets import (
+    EncodeTypeEnum,
+    parse_preset_hardware_acceleration_decode,
+    parse_preset_hardware_acceleration_encode,
+    parse_preset_hardware_acceleration_scale,
+    parse_preset_input,
+)
 
 
 class TestFfmpegPresets(unittest.TestCase):
@@ -76,6 +82,38 @@ class TestFfmpegPresets(unittest.TestCase):
         assert "fps=10,scale_cuda=w=2560:h=1920,hwdownload,format=nv12" in (
             " ".join(frigate_config.cameras["back"].ffmpeg_cmds[0]["cmd"])
         )
+
+    def test_axera_hwaccel_presets(self):
+        decode_args = parse_preset_hardware_acceleration_decode(
+            "preset-axera-h264",
+            5,
+            320,
+            320,
+            0,
+        )
+        assert "-resize 320x320 -c:v h264_axdec" == " ".join(decode_args)
+
+        scale_args = parse_preset_hardware_acceleration_scale(
+            "preset-axera-h264-compat",
+            ["-f", "rawvideo", "-pix_fmt", "nv12"],
+            5,
+            320,
+            320,
+        )
+        assert "-r 5 -vf ax_scale=320:320,hwdownload,format=nv12" in " ".join(
+            scale_args
+        )
+        assert "-f rawvideo -pix_fmt nv12" in " ".join(scale_args)
+
+        encode_args = parse_preset_hardware_acceleration_encode(
+            "/usr/lib/ffmpeg/ax/bin/ffmpeg",
+            "preset-axera-h264",
+            "-i input.mp4",
+            "output.mp4",
+            EncodeTypeEnum.preview,
+        )
+        assert "-c:v h264_axenc" in encode_args
+        assert "-init_hw_device axmm:axmm,alloc_blk=1" in encode_args
 
     def test_default_ffmpeg_input_arg_preset(self):
         frigate_config = FrigateConfig(**self.default_ffmpeg)

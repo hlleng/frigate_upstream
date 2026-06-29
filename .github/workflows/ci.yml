@@ -4,6 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches:
+      - axera-dev
       - dev
       - master
     paths-ignore:
@@ -197,6 +198,112 @@ jobs:
           set: |
             synaptics.tags=${{ steps.setup.outputs.image-name }}-synaptics
             *.cache-from=type=gha
+  ax650_build:
+    runs-on: ubuntu-22.04-arm
+    name: AX650 Build
+    needs:
+      - arm64_build
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Set up QEMU and Buildx
+        id: setup
+        uses: ./.github/actions/setup
+        with:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push AX650 build
+        uses: docker/bake-action@v7
+        with:
+          source: .
+          push: true
+          targets: ax650
+          files: docker/axera/ax650.hcl
+          set: |
+            ax650.tags=${{ steps.setup.outputs.image-name }}-ax650
+            *.cache-from=type=registry,ref=${{ steps.setup.outputs.cache-name }}-arm64
+            *.cache-to=type=registry,ref=${{ steps.setup.outputs.cache-name }}-ax650,mode=max
+  x86_axcl_build:
+    runs-on: ubuntu-22.04
+    name: x86 AXCL Build
+    needs:
+      - amd64_build
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Set up QEMU and Buildx
+        id: setup
+        uses: ./.github/actions/setup
+        with:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push x86 AXCL build
+        uses: docker/bake-action@v7
+        with:
+          source: .
+          push: true
+          targets: x86-axcl
+          files: docker/axcl/x86-axcl.hcl
+          set: |
+            x86-axcl.tags=${{ steps.setup.outputs.image-name }}-x86-axcl
+            *.cache-from=type=registry,ref=${{ steps.setup.outputs.cache-name }}-amd64
+            *.cache-to=type=registry,ref=${{ steps.setup.outputs.cache-name }}-x86-axcl,mode=max
+  rk_axcl_build:
+    runs-on: ubuntu-22.04-arm
+    name: Rockchip AXCL Build
+    needs:
+      - arm64_extra_builds
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Set up QEMU and Buildx
+        id: setup
+        uses: ./.github/actions/setup
+        with:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push Rockchip AXCL build
+        uses: docker/bake-action@v7
+        with:
+          source: .
+          push: true
+          targets: rk-axcl
+          files: |
+            docker/rockchip/rk.hcl
+            docker/axcl/rk-axcl.hcl
+          set: |
+            rk-axcl.tags=${{ steps.setup.outputs.image-name }}-rk-axcl
+            *.cache-from=type=gha
+  rpi_axcl_build:
+    runs-on: ubuntu-22.04-arm
+    name: RPi AXCL Build
+    needs:
+      - arm64_build
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Set up QEMU and Buildx
+        id: setup
+        uses: ./.github/actions/setup
+        with:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push RPi AXCL build
+        uses: docker/bake-action@v7
+        with:
+          source: .
+          push: true
+          targets: rpi-axcl
+          files: |
+            docker/rpi/rpi.hcl
+            docker/axcl/rpi-axcl.hcl
+          set: |
+            rpi-axcl.tags=${{ steps.setup.outputs.image-name }}-rpi-axcl
+            *.cache-from=type=registry,ref=${{ steps.setup.outputs.cache-name }}-arm64
   # The majority of users running arm64 are rpi users, so the rpi
   # build should be the primary arm64 image
   assemble_default_build:
