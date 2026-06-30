@@ -17,6 +17,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  DOCKER_BUILD_SUMMARY: "false"
   DOCKER_BUILD_RECORD_UPLOAD: "false"
 
 jobs:
@@ -81,6 +82,7 @@ jobs:
 
       - name: Save Docker image as tar
         run: |
+          sudo chmod 755 /var/lib/docker
           sudo mkdir -p "$(dirname "${TAR_PATH}")"
           sudo chown "${USER}:${USER}" "$(dirname "${TAR_PATH}")"
           docker pull "${IMAGE_NAME}"
