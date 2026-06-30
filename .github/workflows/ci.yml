@@ -64,7 +64,7 @@ jobs:
         run: |
           echo "SHORT_SHA=${GITHUB_SHA::7}" >> "$GITHUB_ENV"
           echo "IMAGE_NAME=${{ steps.setup.outputs.image-name }}-${{ matrix.target }}" >> "$GITHUB_ENV"
-          echo "TAR_PATH=frigate-${{ matrix.target }}-${GITHUB_SHA::7}.tar" >> "$GITHUB_ENV"
+          echo "TAR_PATH=/var/lib/docker/frigate-artifacts/frigate-${{ matrix.target }}-${GITHUB_SHA::7}.tar" >> "$GITHUB_ENV"
           echo "image_name=${{ steps.setup.outputs.image-name }}-${{ matrix.target }}" >> "$GITHUB_OUTPUT"
 
       - name: Build and push Axera image
@@ -81,6 +81,8 @@ jobs:
 
       - name: Save Docker image as tar
         run: |
+          sudo mkdir -p "$(dirname "${TAR_PATH}")"
+          sudo chown "${USER}:${USER}" "$(dirname "${TAR_PATH}")"
           docker pull "${IMAGE_NAME}"
           docker save "${IMAGE_NAME}" -o "${TAR_PATH}"
           ls -lh "${TAR_PATH}"
@@ -89,6 +91,6 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: frigate-${{ matrix.target }}-docker-image
-          path: frigate-${{ matrix.target }}-*.tar
+          path: /var/lib/docker/frigate-artifacts/frigate-${{ matrix.target }}-*.tar
           retention-days: 7
           compression-level: 0
