@@ -139,6 +139,10 @@ jobs:
             tensorrt.tags=${{ steps.setup.outputs.image-name }}-tensorrt
             *.cache-from=type=registry,ref=${{ steps.setup.outputs.cache-name }}-tensorrt
             *.cache-to=type=registry,ref=${{ steps.setup.outputs.cache-name }}-tensorrt,mode=max
+      - name: Clean up Docker cache before ROCm build
+        run: |
+          docker buildx prune -af || true
+          docker system prune -af --volumes || true
       - name: AMD/ROCm general build
         env:
           HSA_OVERRIDE: 0
