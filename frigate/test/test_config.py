@@ -88,6 +88,33 @@ class TestConfig(unittest.TestCase):
             == SemanticSearchModelEnum.ax_jinav2
         )
 
+    def test_genai_max_concurrency_config(self):
+        config = deep_merge(
+            {
+                "genai": {
+                    "default": {
+                        "provider": "openai",
+                        "model": "AXERA-TECH/Qwen3.5-2B",
+                        "api_key": "EMPTY",
+                        "roles": ["descriptions", "embeddings"],
+                    },
+                    "local": {
+                        "provider": "openai",
+                        "model": "AXERA-TECH/Qwen3.5-2B",
+                        "api_key": "EMPTY",
+                        "max_concurrency": 2,
+                        "roles": ["chat"],
+                    },
+                }
+            },
+            self.minimal,
+        )
+
+        frigate_config = FrigateConfig(**config)
+
+        assert frigate_config.genai["default"].max_concurrency == 1
+        assert frigate_config.genai["local"].max_concurrency == 2
+
     @patch("frigate.detectors.detector_config.load_labels")
     def test_detector_custom_model_path(self, mock_labels):
         mock_labels.return_value = {}

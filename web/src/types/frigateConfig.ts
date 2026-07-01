@@ -389,6 +389,7 @@ export type GenAIAgentConfig = {
   model: string;
   provider?: string;
   roles: GenAIRole[];
+  max_concurrency: number;
   provider_options?: Record<string, unknown>;
   runtime_options?: Record<string, unknown>;
 };

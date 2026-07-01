@@ -5,6 +5,7 @@ import json
 import logging
 import os
 import re
+import threading
 import time
 from typing import Any, AsyncGenerator, Callable, Optional
 
@@ -104,6 +105,9 @@ class GenAIClient:
         self.genai_config: GenAIConfig = genai_config
         self.timeout = timeout
         self.validate_model = validate_model
+        self._request_semaphore = threading.BoundedSemaphore(
+            self.genai_config.max_concurrency
+        )
         self.provider = self._init_provider()
         self._last_init_attempt = time.monotonic()
 
@@ -167,7 +171,7 @@ class GenAIClient:
 
         response_format = build_review_description_response_format(concerns)
 
-        response = self._send(context_prompt, thumbnails, response_format)
+        response = self._send_limited(context_prompt, thumbnails, response_format)
 
         if debug_save and response:
             with open(
@@ -262,7 +266,7 @@ class GenAIClient:
             ) as f:
                 f.write(timeline_summary_prompt)
 
-        response = self._send(timeline_summary_prompt, [])
+        response = self._send_limited(timeline_summary_prompt, [])
 
         if debug_save and response:
             with open(
@@ -289,11 +293,22 @@ class GenAIClient:
             return None
 
         logger.debug(f"Sending images to genai provider with prompt: {prompt}")
-        return self._send(prompt, thumbnails)
+        return self._send_limited(prompt, thumbnails)
 
     def _init_provider(self) -> Any:
         """Initialize the client."""
         return None
+
+    def _send_limited(
+        self,
+        prompt: str,
+        images: list[bytes],
+        response_format: Optional[dict] = None,
+        enable_thinking: bool = False,
+    ) -> Optional[str]:
+        """按 provider 配置限制 GenAI 请求并发。"""
+        with self._request_semaphore:
+            return self._send(prompt, images, response_format, enable_thinking)
 
     def _send(
         self,
