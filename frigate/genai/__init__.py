@@ -38,6 +38,46 @@ __all__ = [
 PROVIDERS = {}
 
 
+def _extract_json_from_genai_response(response: str) -> str:
+    """从兼容 OpenAI 的本地模型响应中提取 JSON 文本。"""
+    clean_json = re.sub(
+        r"<think>.*?</think>", "", response, flags=re.DOTALL | re.IGNORECASE
+    ).strip()
+
+    fenced_match = re.search(
+        r"```[a-zA-Z0-9_-]*\s*(.*?)\s*```",
+        clean_json,
+        flags=re.DOTALL,
+    )
+    if fenced_match:
+        clean_json = fenced_match.group(1).strip()
+    else:
+        clean_json = re.sub(r"^```[a-zA-Z0-9_-]*\s*", "", clean_json)
+        clean_json = re.sub(r"\s*```$", "", clean_json).strip()
+
+    json_match = re.search(r"\{.*\}", clean_json, flags=re.DOTALL)
+    if json_match:
+        clean_json = json_match.group(0).strip()
+
+    return clean_json
+
+
+def _normalize_review_metadata_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    """兼容本地 VLM 常见的字段命名偏差。"""
+    aliases = {
+        "potentialthreatlevel": "potential_threat_level",
+        "potentialThreatLevel": "potential_threat_level",
+        "threat_level": "potential_threat_level",
+        "short_summary": "shortSummary",
+    }
+
+    for alias, target in aliases.items():
+        if target not in payload and alias in payload:
+            payload[target] = payload.pop(alias)
+
+    return payload
+
+
 def register_genai_provider(key: GenAIProviderEnum) -> Callable:
     """Register a GenAI provider."""
 
@@ -139,12 +179,22 @@ class GenAIClient:
                 f.write(response)
 
         if response:
-            clean_json = re.sub(
-                r"\n?```$", "", re.sub(r"^```[a-zA-Z0-9]*\n?", "", response)
-            )
+            clean_json = _extract_json_from_genai_response(response)
 
             try:
-                metadata = ReviewMetadata.model_validate_json(clean_json)
+                raw = json.loads(clean_json)
+            except json.JSONDecodeError as je:
+                logger.error("Failed to parse review description JSON: %s", je)
+                return None
+
+            if not isinstance(raw, dict):
+                logger.error("Review description JSON must be an object.")
+                return None
+
+            raw = _normalize_review_metadata_payload(raw)
+
+            try:
+                metadata = ReviewMetadata.model_validate(raw)
             except ValidationError as ve:
                 # Constraint violations (length, item count, ranges) are logged
                 # at debug and the response is kept anyway — a slightly
@@ -158,11 +208,6 @@ class GenAIClient:
                         err["msg"],
                         err.get("input"),
                     )
-                try:
-                    raw = json.loads(clean_json)
-                except json.JSONDecodeError as je:
-                    logger.error("Failed to parse review description JSON: %s", je)
-                    return None
                 # observations and confidence are required on the model; fill an empty default
                 # if the response omitted it so attribute access stays safe.
                 raw.setdefault("observations", [])
