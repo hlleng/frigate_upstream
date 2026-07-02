@@ -4,6 +4,7 @@ from frigate.config import FrigateConfig
 from frigate.config.camera.ffmpeg import FFMPEG_INPUT_ARGS_DEFAULT
 from frigate.ffmpeg_presets import (
     EncodeTypeEnum,
+    get_preview_mp4_command,
     parse_preset_hardware_acceleration_decode,
     parse_preset_hardware_acceleration_encode,
     parse_preset_hardware_acceleration_scale,
@@ -116,6 +117,25 @@ class TestFfmpegPresets(unittest.TestCase):
         assert "-init_hw_device axmm:axmm,alloc_blk=1" in encode_args
         assert "-preset:v" not in encode_args
         assert "libx264" not in encode_args
+
+        preview_mp4_cmd = get_preview_mp4_command(
+            "/usr/lib/ffmpeg/ax/bin/ffmpeg",
+            "preset-axera-h264",
+            ["-f", "concat", "-i", "/dev/stdin"],
+            ["-movflags", "+faststart", "/tmp/out.mp4"],
+        )
+        assert "-init_hw_device" in preview_mp4_cmd
+        assert "h264_axenc" in preview_mp4_cmd
+        assert "libx264" not in preview_mp4_cmd
+
+        default_preview_mp4_cmd = get_preview_mp4_command(
+            "ffmpeg",
+            "default",
+            ["-f", "concat", "-i", "/dev/stdin"],
+            ["-movflags", "+faststart", "/tmp/out.mp4"],
+        )
+        assert "libx264" in default_preview_mp4_cmd
+        assert "h264_axenc" not in default_preview_mp4_cmd
 
     def test_default_ffmpeg_input_arg_preset(self):
         frigate_config = FrigateConfig(**self.default_ffmpeg)

@@ -2,6 +2,7 @@
 
 import logging
 import os
+import shlex
 from enum import Enum
 from typing import Any, Optional
 
@@ -263,6 +264,44 @@ class EncodeTypeEnum(str, Enum):
     birdseye = "birdseye"
     preview = "preview"
     timelapse = "timelapse"
+
+
+def get_preview_encode_preset(hwaccel_args: Any) -> str:
+    if isinstance(hwaccel_args, str) and hwaccel_args.startswith("preset-axera-"):
+        return hwaccel_args
+
+    return "default"
+
+
+def get_preview_mp4_command(
+    ffmpeg_path: str,
+    hwaccel_args: Any,
+    input_args: list[str],
+    output_args: list[str],
+) -> list[str]:
+    encode_preset = get_preview_encode_preset(hwaccel_args)
+
+    if encode_preset == "default":
+        return [
+            ffmpeg_path,
+            "-hide_banner",
+            "-loglevel",
+            "warning",
+            *input_args,
+            "-c:v",
+            "libx264",
+            *output_args,
+        ]
+
+    return shlex.split(
+        parse_preset_hardware_acceleration_encode(
+            ffmpeg_path,
+            encode_preset,
+            shlex.join(["-loglevel", "warning", *input_args]),
+            shlex.join(output_args),
+            EncodeTypeEnum.preview,
+        )
+    )
 
 
 def parse_preset_hardware_acceleration_encode(
