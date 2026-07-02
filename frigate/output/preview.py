@@ -57,6 +57,13 @@ PREVIEW_QMAX_PARAM = {
 }
 
 
+def _get_preview_encode_preset(hwaccel_args: Any) -> str:
+    if isinstance(hwaccel_args, str) and hwaccel_args.startswith("preset-axera-"):
+        return hwaccel_args
+
+    return "default"
+
+
 def get_cache_image_name(camera: str, frame_time: float) -> str:
     """Get the image name in cache."""
     return os.path.join(
@@ -133,7 +140,7 @@ class FFMpegConverter(threading.Thread):
         # write a PREVIEW at fps and 1 key frame per clip
         self.ffmpeg_cmd = parse_preset_hardware_acceleration_encode(
             config.ffmpeg.ffmpeg_path,
-            "default",
+            _get_preview_encode_preset(config.ffmpeg.hwaccel_args),
             input="-f concat -y -protocol_whitelist pipe,file -safe 0 -threads 1 -i /dev/stdin",
             output=f"-threads 1 -g {PREVIEW_KEYFRAME_INTERVAL} -bf 0 -b:v {PREVIEW_QUALITY_BIT_RATES[self.config.record.preview.quality]}{PREVIEW_QMAX_PARAM[self.config.record.preview.quality]} {FPS_VFR_PARAM} -movflags +faststart -pix_fmt yuv420p {self.path}",
             type=EncodeTypeEnum.preview,

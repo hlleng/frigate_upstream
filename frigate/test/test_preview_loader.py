@@ -5,6 +5,7 @@ import unittest
 from frigate.output.preview import (
     PREVIEW_CACHE_DIR,
     PREVIEW_FRAME_TYPE,
+    _get_preview_encode_preset,
     get_most_recent_preview_frame,
 )
 
@@ -78,3 +79,13 @@ class TestPreviewLoader(unittest.TestCase):
     def test_get_most_recent_preview_frame_no_directory(self):
         shutil.rmtree(PREVIEW_CACHE_DIR)
         self.assertIsNone(get_most_recent_preview_frame("test_camera"))
+
+    def test_axera_preview_uses_axera_encode_preset(self):
+        self.assertEqual(
+            _get_preview_encode_preset("preset-axera-h264"),
+            "preset-axera-h264",
+        )
+
+    def test_preview_uses_default_encode_preset_for_non_axera(self):
+        self.assertEqual(_get_preview_encode_preset("preset-rk-h264"), "default")
+        self.assertEqual(_get_preview_encode_preset(["-hwaccel", "auto"]), "default")

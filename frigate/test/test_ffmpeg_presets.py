@@ -114,6 +114,8 @@ class TestFfmpegPresets(unittest.TestCase):
         )
         assert "-c:v h264_axenc" in encode_args
         assert "-init_hw_device axmm:axmm,alloc_blk=1" in encode_args
+        assert "-preset:v" not in encode_args
+        assert "libx264" not in encode_args
 
     def test_default_ffmpeg_input_arg_preset(self):
         frigate_config = FrigateConfig(**self.default_ffmpeg)
