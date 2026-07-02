@@ -23,7 +23,12 @@ from frigate.ffmpeg_presets import (
     parse_preset_hardware_acceleration_encode,
 )
 from frigate.models import Previews
-from frigate.util.image import copy_yuv_to_position, get_blank_yuv_frame, get_yuv_crop
+from frigate.util.image import (
+    copy_yuv_to_position,
+    get_blank_yuv_frame,
+    get_yuv_crop,
+    yuv_to_bgr,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -346,22 +351,28 @@ class PreviewRecorder:
         return False
 
     def write_frame_to_cache(self, frame_time: float, frame: np.ndarray) -> None:
-        # resize yuv frame
-        small_frame: np.ndarray = np.zeros(
-            (self.out_height * 3 // 2, self.out_width), np.uint8
-        )
-        copy_yuv_to_position(
-            small_frame,
-            (0, 0),
-            (self.out_height, self.out_width),
-            frame,
-            self.channel_dims,
-            cv2.INTER_AREA,
-        )
-        small_frame = cv2.cvtColor(
-            small_frame,
-            cv2.COLOR_YUV2BGR_I420,
-        )
+        if self.config.detect_pixel_format == "nv12":
+            small_frame = yuv_to_bgr(frame, self.config.detect_pixel_format)
+            small_frame = cv2.resize(
+                small_frame,
+                dsize=(self.out_width, self.out_height),
+                interpolation=cv2.INTER_AREA,
+            )
+        else:
+            # resize yuv frame
+            small_frame: np.ndarray = np.zeros(
+                (self.out_height * 3 // 2, self.out_width), np.uint8
+            )
+            copy_yuv_to_position(
+                small_frame,
+                (0, 0),
+                (self.out_height, self.out_width),
+                frame,
+                self.channel_dims,
+                cv2.INTER_AREA,
+            )
+            small_frame = yuv_to_bgr(small_frame, self.config.detect_pixel_format)
+
         cache_path = get_cache_image_name(self.camera_name, frame_time)
 
         if not cv2.imwrite(
